@@ -9,6 +9,14 @@ import { COUNTRIES } from '@/lib/countries';
 import { getErrorMessage } from '@/lib/utils';
 import { isAuthResponse } from '@/lib/types';
 
+const PASSWORD_REQUIREMENTS = [
+  { key: 'length', label: 'At least 8 characters', test: (v: string) => v.length >= 8 },
+  { key: 'uppercase', label: 'One uppercase letter', test: (v: string) => /[A-Z]/.test(v) },
+  { key: 'lowercase', label: 'One lowercase letter', test: (v: string) => /[a-z]/.test(v) },
+  { key: 'number', label: 'One number', test: (v: string) => /[0-9]/.test(v) },
+  { key: 'special', label: 'One special character', test: (v: string) => /[^A-Za-z0-9]/.test(v) },
+];
+
 export default function RegisterPage() {
   const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
@@ -20,6 +28,12 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const checks = PASSWORD_REQUIREMENTS.reduce<Record<string, boolean>>((acc, req) => {
+    acc[req.key] = req.test(form.password);
+    return acc;
+  }, {});
+  const metCount = PASSWORD_REQUIREMENTS.filter((req) => checks[req.key]).length;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -100,8 +114,24 @@ export default function RegisterPage() {
               required
               value={form.password}
               onChange={handleChange}
+              aria-describedby="password-requirements"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
+            <ul
+              id="password-requirements"
+              aria-live="polite"
+              className="mt-2 space-y-1 text-sm text-gray-600"
+            >
+              {PASSWORD_REQUIREMENTS.map((req) => (
+                <li key={req.key} className={checks[req.key] ? 'text-green-600' : undefined}>
+                  <span aria-hidden="true">{checks[req.key] ? '✓' : '•'}</span>{' '}
+                  {req.label}
+                </li>
+              ))}
+            </ul>
+            <p className="sr-only" aria-live="polite">
+              {metCount} of {PASSWORD_REQUIREMENTS.length} requirements met
+            </p>
           </div>
 
           <div>

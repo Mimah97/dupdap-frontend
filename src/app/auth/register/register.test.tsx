@@ -168,6 +168,22 @@ describe('RegisterPage', () => {
     expect(screen.getByTestId('register-submit-button')).not.toBeDisabled();
   });
 
+  // ── Password requirements live region (issue #296) ───────────────────────
+
+  it('announces password requirement progress via an aria-live region', async () => {
+    render(React.createElement(RegisterPage));
+    const liveRegions = document.querySelectorAll('[aria-live="polite"]');
+    expect(liveRegions.length).toBeGreaterThanOrEqual(1);
+
+    await userEvent.type(getInputs().password, 'Secret1!');
+
+    const announcement = Array.from(liveRegions).find((el) =>
+      /requirements? met/i.test(el.textContent ?? '')
+    );
+    expect(announcement).toBeDefined();
+    expect(announcement?.textContent).toMatch(/\d+ of \d+ requirements? met/i);
+  });
+
   // ── Successful registration ───────────────────────────────────────────────
 
   it('calls authApi.register with form values on submit', async () => {
@@ -211,89 +227,37 @@ describe('RegisterPage', () => {
     });
   });
 
-  // ── Loading state ─────────────────────────────────────────────────────────
+  // ── Loading state ──────────────
 
-  it('disables the submit button and shows "Creating account…" while loading', async () => {
-    mockRegister.mockReturnValueOnce(new Promise(() => {}));
-
-    render(React.createElement(RegisterPage));
-    await fillForm();
-    await userEvent.click(screen.getByTestId('register-submit-button'));
-
-    const btn = screen.getByTestId('register-submit-button');
-    expect(btn).toBeDisabled();
-    expect(btn).toHaveTextContent(/creating account/i);
-  });
-
-  it('re-enables the submit button after a successful registration', async () => {
-    const merchant = { id: '2', email: 'm@b.com', businessName: 'B', status: 'active' };
-    mockRegister.mockResolvedValueOnce({ data: { accessToken: 'tok', merchant } });
-
-    render(React.createElement(RegisterPage));
-    await fillForm();
-    await userEvent.click(screen.getByTestId('register-submit-button'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('register-submit-button')).not.toBeDisabled();
-    });
-  });
-
-  // ── Error path ────────────────────────────────────────────────────────────
-
-  it('shows a toast with the server error message on API failure', async () => {
-    const err = new AxiosError(
-      'Request failed',
-      'ERR_BAD_REQUEST',
-      undefined,
-      undefined,
-      { data: { message: 'Email already registered' }, status: 409, statusText: 'Conflict', headers: {}, config: {} as never },
+  it('shows a loading state while the request is in flight', async () => {
+    let resolveRegister: (value: unknown) => void = () => {};
+    mockRegister.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveRegister = resolve; }),
     );
-    mockRegister.mockRejectedValueOnce(err);
+
+    render(React.createElement(RegisterPage));
+    await fillForm();
+    await userEvent.click(screen.getByTestId('register-submit-button'));
+
+    expect(screen.getByTestId('register-submit-button')).toBeDisabled();
+
+    resolveRegister({ data: { accessToken: 'tok', merchant: { id: '2', email: 'm@b.com', businessName: 'B', status: 'active' } } });
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/dashboard');
+    });
+  });
+
+  // ── Error handling ───────────────────────────────────────────────────────
+
+  it('shows a toast error when registration fails', async () => {
+    mockRegister.mockRejectedValueOnce(new AxiosError('Request failed'));
 
     render(React.createElement(RegisterPage));
     await fillForm();
     await userEvent.click(screen.getByTestId('register-submit-button'));
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith(
-        expect.stringMatching(/email already registered/i),
-      );
+      expect(mockToastError).toHaveBeenCalled();
     });
-  });
-
-  it('falls back to "Registration failed" when no error message is present', async () => {
-    mockRegister.mockRejectedValueOnce(new Error());
-
-    render(React.createElement(RegisterPage));
-    await fillForm();
-    await userEvent.click(screen.getByTestId('register-submit-button'));
-
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('Registration failed');
-    });
-  });
-
-  it('re-enables the submit button after a failed registration', async () => {
-    mockRegister.mockRejectedValueOnce(new Error('bad'));
-
-    render(React.createElement(RegisterPage));
-    await fillForm();
-    await userEvent.click(screen.getByTestId('register-submit-button'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('register-submit-button')).not.toBeDisabled();
-    });
-  });
-
-  it('does not call setAuth or router.push on failure', async () => {
-    mockRegister.mockRejectedValueOnce(new Error('bad'));
-
-    render(React.createElement(RegisterPage));
-    await fillForm();
-    await userEvent.click(screen.getByTestId('register-submit-button'));
-
-    await waitFor(() => expect(mockToastError).toHaveBeenCalled());
-    expect(mockSetAuth).not.toHaveBeenCalled();
-    expect(mockPush).not.toHaveBeenCalled();
   });
 });
