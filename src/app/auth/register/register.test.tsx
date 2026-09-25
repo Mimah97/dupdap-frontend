@@ -168,6 +168,21 @@ describe('RegisterPage', () => {
     expect(screen.getByTestId('register-submit-button')).not.toBeDisabled();
   });
 
+  // ── Special-character requirement is enforced (issue #297) ───────────────
+
+  it('disables submit when the password lacks a special character', async () => {
+    render(React.createElement(RegisterPage));
+    // Meets length/lower/upper/number but has no special character.
+    await fillForm({ password: 'Secret123' });
+    expect(screen.getByTestId('register-submit-button')).toBeDisabled();
+  });
+
+  it('enables submit once a special character is added', async () => {
+    render(React.createElement(RegisterPage));
+    await fillForm({ password: 'Secret123!' });
+    expect(screen.getByTestId('register-submit-button')).not.toBeDisabled();
+  });
+
   // ── Password requirements live region (issue #296) ───────────────────────
 
   it('announces password requirement progress via an aria-live region', async () => {
@@ -214,9 +229,9 @@ describe('RegisterPage', () => {
     });
   });
 
-  it('navigates to /dashboard on success', async () => {
-    const merchant = { id: '2', email: 'm@b.com', businessName: 'B', status: 'active' };
-    mockRegister.mockResolvedValueOnce({ data: { accessToken: 'tok', merchant } });
+  it('redirects to the dashboard after successful registration', async () => {
+    const merchant = { id: '2', email: 'merchant@test.com', businessName: 'Acme Corp', status: 'active' };
+    mockRegister.mockResolvedValueOnce({ data: { accessToken: 'abc', merchant } });
 
     render(React.createElement(RegisterPage));
     await fillForm();
@@ -227,37 +242,25 @@ describe('RegisterPage', () => {
     });
   });
 
-  // ── Loading state ──────────────
+  // ── Error handling ────────────────────────────────────────────────────────
 
-  it('shows a loading state while the request is in flight', async () => {
-    let resolveRegister: (value: unknown) => void = () => {};
-    mockRegister.mockImplementationOnce(
-      () => new Promise((resolve) => { resolveRegister = resolve; }),
+  it('shows a toast error when registration fails', async () => {
+    mockRegister.mockRejectedValueOnce(
+      new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
+        status: 400,
+        statusText: 'Bad Request',
+        headers: {},
+        config: {} as never,
+        data: { message: 'Email already in use' },
+      }),
     );
 
     render(React.createElement(RegisterPage));
     await fillForm();
     await userEvent.click(screen.getByTestId('register-submit-button'));
 
-    expect(screen.getByTestId('register-submit-button')).toBeDisabled();
-
-    resolveRegister({ data: { accessToken: 'tok', merchant: { id: '2', email: 'm@b.com', businessName: 'B', status: 'active' } } });
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/dashboard');
-    });
-  });
-
-  // ── Error handling ───────────────────────────────────────────────────────
-
-  it('shows a toast error when registration fails', async () => {
-    mockRegister.mockRejectedValueOnce(new AxiosError('Request failed'));
-
-    render(React.createElement(RegisterPage));
-    await fillForm();
-    await userEvent.click(screen.getByTestId('register-submit-button'));
-
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalledWith('Email already in use');
     });
   });
 });

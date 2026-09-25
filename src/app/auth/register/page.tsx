@@ -34,6 +34,8 @@ export default function RegisterPage() {
     return acc;
   }, {});
   const metCount = PASSWORD_REQUIREMENTS.filter((req) => checks[req.key]).length;
+  const passwordValid =
+    checks.length && checks.uppercase && checks.lowercase && checks.number && checks.special;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -157,7 +159,7 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !passwordValid}
             className="w-full flex justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {loading ? 'Creating account...' : 'Create account'}
