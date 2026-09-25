@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { COUNTRIES } from '@/lib/countries';
-import { getErrorMessage } from '@/lib/utils';
+import { getErrorMessage } from '@/lib/errors';
 import { isAuthResponse } from '@/lib/types';
 
 const PASSWORD_REQUIREMENTS = [
@@ -62,6 +62,36 @@ export default function RegisterPage() {
     }
   };
 
+  // Each field key doubles as the input id so htmlFor/id are always in sync (#156).
+  const field = (
+    key: keyof typeof form,
+    label: string,
+    type = 'text',
+    required = true,
+    autoComplete?: string,
+  ) => (
+    <div>
+      <label htmlFor={key} className="label">{label}</label>
+      <input
+        id={key}
+        className="input"
+        type={type}
+        required={required}
+        autoComplete={autoComplete}
+        value={form[key]}
+        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+      />
+    </div>
+  );
+
+  const requirements: { key: keyof PasswordChecks; label: string }[] = [
+    { key: 'length', label: 'At least 8 characters' },
+    { key: 'upper', label: 'An uppercase letter' },
+    { key: 'lower', label: 'A lowercase letter' },
+    { key: 'number', label: 'A number' },
+    { key: 'special', label: 'A special character' },
+  ];
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
@@ -72,10 +102,25 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6 space-y-4">
-          {error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        <form onSubmit={submit} className="space-y-4" aria-busy={loading}>
+          {/* Visually-hidden live region announces submit outcomes to screen readers (#158) */}
+          <p className="sr-only" aria-live="polite" aria-atomic="true">
+            {loading ? 'Creating account, please wait…' : ''}
+          </p>
+
+          {formError && (
+            <div
+              data-testid="register-form-error"
+              role="alert"
+              className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700"
+            >
+              {formError}
+            </div>
           )}
+
+          <fieldset disabled={loading} className="space-y-4">
+            {field('businessName', 'Business Name', 'text', true, 'organization')}
+            {field('email', 'Email', 'email', true, 'email')}
 
           <div>
             <label htmlFor="businessName" className="block text-sm font-medium text-gray-700">
