@@ -26,6 +26,7 @@ export default function RegisterPage() {
     businessName: '',
     country: '',
   });
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -36,6 +37,7 @@ export default function RegisterPage() {
   const metCount = PASSWORD_REQUIREMENTS.filter((req) => checks[req.key]).length;
   const passwordValid =
     checks.length && checks.uppercase && checks.lowercase && checks.number && checks.special;
+  const passwordsMatch = form.password === confirmPassword;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -137,6 +139,32 @@ export default function RegisterPage() {
           </div>
 
           <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              Confirm password
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              aria-describedby={!passwordsMatch ? 'confirm-password-error' : undefined}
+              aria-invalid={!passwordsMatch}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            {!passwordsMatch && (
+              <p
+                id="confirm-password-error"
+                role="alert"
+                className="text-xs text-red-500 mt-1"
+              >
+                Passwords do not match
+              </p>
+            )}
+          </div>
+
+          <div>
             <label htmlFor="country" className="block text-sm font-medium text-gray-700">
               Country
             </label>
@@ -159,7 +187,7 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            disabled={loading || !passwordValid}
+            disabled={loading || !passwordValid || !passwordsMatch}
             className="w-full flex justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {loading ? 'Creating account...' : 'Create account'}
